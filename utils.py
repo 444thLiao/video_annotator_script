@@ -9,11 +9,15 @@ def data_parser(path, ft='csv', **kwargs):
         if type(df) != pd.DataFrame:
             df = pd.DataFrame(df)
     else:
-        if ft == 'csv':
+        if path.endswith('.xlsx') or path.endswith('.xls') or ft=='xlsx':
+            df = pd.read_excel(path, index_col=False, header=0, **kwargs)
+            return df
+        if ft == 'csv' and not path.endswith('.xlsx'):
             sniffer = csv.Sniffer()
             sniffer.preferred = [',', '\t', '|']
             dialect = sniffer.sniff(open(path, 'r').readline().strip('\n'))
             df = pd.read_csv(path, sep=dialect.delimiter, index_col=False, header=0, low_memory=False, **kwargs)
+            return df
             # low_memory is important for sample name look like float and str. it may mistaken the sample name into some float.
         # elif ft == 'metadatas': # indicate there may be multiple input
         #     datas = [data_parser(_,ft='csv',verbose=0) for _ in path]
@@ -21,15 +25,14 @@ def data_parser(path, ft='csv', **kwargs):
         #     merged_data = pd.concat(datas, axis=1)
         #     col_dict = {p: list(data.columns) for p, data in zip(path,datas)}
         #     return merged_data, col_dict
-        else:
-            df = pd.read_excel(path, index_col=0, header=0, **kwargs)
-
-    return df
 
 
-def parse_metadata(metadata: pd.DataFrame):
+
+
+def parse_metadata(metadata: pd.DataFrame) -> (dict,pd.DataFrame):
     metadata = data_parser(metadata, ft='csv')
     results = {}
+    new_index = []
     for r_idx in metadata.index:
         rat_id = metadata.loc[r_idx, 'ID']
         date = metadata.loc[r_idx, 'date']
@@ -43,4 +46,6 @@ def parse_metadata(metadata: pd.DataFrame):
         fname = 'R{id}_{action}.avi'.format(id=str(int(rat_id)),
                                             action=adict.get(action, ''))
         results[fname] = (rat_id, date, action, raw_stime, raw_etime)
-    return results
+        new_index.append(r_idx)
+    metadata.index = new_index
+    return results, metadata

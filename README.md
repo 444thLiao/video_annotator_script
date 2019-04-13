@@ -1,2 +1,4 @@
-# Video annotator sciprt
+# Video annotator script
+
+## 
 

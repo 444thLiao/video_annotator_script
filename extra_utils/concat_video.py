@@ -3,6 +3,7 @@ from glob import glob
 from subprocess import check_call
 
 from tqdm import tqdm
+import time
 
 
 def concat_2(v1, v2, oname):
@@ -14,9 +15,11 @@ def concat_2(v1, v2, oname):
     :return:
     """
     cmd = "/usr/bin/ffmpeg -i {infile} -qscale:v 1 -r 20 {ofile} -loglevel -8 ; ".format(infile=v1,
-                                                                                         ofile=v1.rpartition('.')[0] + '.mpg')
+                                                                                         ofile=v1.rpartition('.')[
+                                                                                                   0] + '.mpg')
     cmd += "/usr/bin/ffmpeg -i {infile} -qscale:v 1 -r 20 {ofile} -loglevel -8 ; ".format(infile=v2,
-                                                                                          ofile=v2.rpartition('.')[0] + '.mpg')
+                                                                                          ofile=v2.rpartition('.')[
+                                                                                                    0] + '.mpg')
     cmd += "cat %s %s > %s ; " % (v1.rpartition('.')[0] + '.mpg',
                                   v2.rpartition('.')[0] + '.mpg',
                                   "/tmp/tmp.mpg")
@@ -41,48 +44,75 @@ def concat_video(indir, odir, recursive=True):
     :param recursive:
     :return:
     """
+    ori_suffix = '.mp4'
+    intermediate_suffix = '.mpg'
+    final_suffix = '.avi'
+    rt_text = ''
+    rt_file = os.path.join(odir, 'all_rt.txt')
     if recursive:
-        all_videos = glob(os.path.join(indir, '**', '*.mp4'))
+        all_videos = glob(os.path.join(indir, '**', '*' + ori_suffix))
         if not all_videos:
             raise Exception
         all_dirs = set([os.path.dirname(v) for v in all_videos])
         for dir_path in all_dirs:
             date = os.path.basename(dir_path)  # 提取文件夹的名称
-            final_file = os.path.join(odir, str(date) + '.avi')
-            if os.path.isfile(final_file):
-                print("Detect final file %s" % final_file, 'pass it')
-                continue
-            sub_video_files = glob(os.path.join(dir_path, '*.mp4'))
+            final_file = os.path.join(odir, str(date) + final_suffix)
+
+            sub_video_files = glob(os.path.join(dir_path, '*' + ori_suffix))
             sub_video_min = [int(os.path.basename(_).split('M')[0]) for _ in sub_video_files]
 
             sorted_files = sorted(zip(sub_video_min,
                                       sub_video_files))
+            first_time_stamp = int(os.path.basename(sorted_files[0][0]).strip(ori_suffix).split('_')[1])
+            rt_text += "%s\t%s\n" % (time.strftime("%Y%m%d%H.avi", time.localtime(first_time_stamp)),
+                                     time.strftime("%H:%M:%S;0", time.localtime(first_time_stamp)))
+            if os.path.isfile(final_file):
+                print("Detect final file %s" % final_file, 'pass it')
+                continue
             for min, video_file in tqdm(sorted_files):
                 cmd = "/usr/bin/ffmpeg -i {infile} -qscale:v 1 -r 20 {ofile} -loglevel -8".format(infile=video_file,
-                                                                                                  ofile=video_file.replace('.mp4',
-                                                                                                                           '.mpg'))
+                                                                                                  ofile=video_file.replace(
+                                                                                                      ori_suffix,
+                                                                                                      intermediate_suffix))
                 # print(cmd)
-                if not os.path.isfile(video_file.replace('.mp4', '.mpg')):
+                if not os.path.isfile(video_file.replace(ori_suffix, intermediate_suffix)):
                     check_call(cmd, shell=True)
             print("itering all files and formatted it.")
-            cmd2 = "cat %s > %s" % (' '.join([video_file.replace('.mp4', '.mpg') for min, video_file in sorted_files]),
-                                    final_file.replace('.avi',
-                                                       '.mpg'))
+            cmd2 = "cat %s > %s" % (
+                ' '.join([video_file.replace(ori_suffix, intermediate_suffix) for min, video_file in sorted_files]),
+                final_file.replace(final_suffix,
+                                   intermediate_suffix))
             # print(cmd2)
-            if not os.path.isfile(final_file.replace('.avi',
-                                                     '.mpg')):
+            if not os.path.isfile(final_file.replace(final_suffix,
+                                                     intermediate_suffix)):
                 os.system(cmd2)
             print("Concat all formatted files")
-            cmd3 = "/usr/bin/ffmpeg -i {infile} -qscale:v 2 {ofile} -loglevel -8; rm {infile}".format(infile=final_file.replace('.avi',
-                                                                                                                                '.mpg'),
-                                                                                                      ofile=final_file)
+            cmd3 = "/usr/bin/ffmpeg -i {infile} -qscale:v 2 {ofile} -loglevel -8; rm {infile}".format(
+                infile=final_file.replace(final_suffix,
+                                          intermediate_suffix),
+                ofile=final_file)
             # print(cmd3)
             check_call(cmd3, shell=True)
             print("Transform the file into avi file.\n Get %s" % final_file)
-
+    with open(rt_file,"w") as f1:
+        f1.write(rt_text)
 
 if __name__ == '__main__':
-    indir = '/home/liaoth/data2/project/VD/data2/raw'
-    odir = '/home/liaoth/data2/project/VD/data2/raw'
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-i", '--input_dir', help="which directory you want to process",
+                        type=str, )
+    parser.add_argument("-o", "--output_dir",
+                        help="The directory you want to save your project(could be non-exist)",
+                        type=str)
+
+    args = parser.parse_args()
+    indir = args.input_dir
+    odir = args.output_dir
+    os.makedirs(odir, exist_ok=True)
+
+    # indir = '/home/liaoth/data2/project/VD/data2/raw'
+    # odir = '/home/liaoth/data2/project/VD/data2/raw'
 
     concat_video(indir, odir)
