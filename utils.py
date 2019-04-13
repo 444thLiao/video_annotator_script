@@ -16,7 +16,9 @@ def data_parser(path, ft='csv', **kwargs):
             sniffer = csv.Sniffer()
             sniffer.preferred = [',', '\t', '|']
             dialect = sniffer.sniff(open(path, 'r').readline().strip('\n'))
-            df = pd.read_csv(path, sep=dialect.delimiter, index_col=False, header=0, low_memory=False, **kwargs)
+            param = dict(sep=dialect.delimiter, index_col=False, header=0, low_memory=False,)
+            param.update(**kwargs)
+            df = pd.read_csv(path, **kwargs)
             return df
             # low_memory is important for sample name look like float and str. it may mistaken the sample name into some float.
         # elif ft == 'metadatas': # indicate there may be multiple input
@@ -46,6 +48,6 @@ def parse_metadata(metadata: pd.DataFrame) -> (dict,pd.DataFrame):
         fname = 'R{id}_{action}.avi'.format(id=str(int(rat_id)),
                                             action=adict.get(action, ''))
         results[fname] = (rat_id, date, action, raw_stime, raw_etime)
-        new_index.append(r_idx)
+        new_index.append(fname)
     metadata.index = new_index
     return results, metadata

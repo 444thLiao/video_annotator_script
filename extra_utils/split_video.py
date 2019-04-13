@@ -157,11 +157,11 @@ def main(indir, odir, metadata, o_metadata, dry_run=False, keep_intermediate=Fal
     :param dry_run:
     :return:
     """
-    rt_f = os.path.join(odir, 'all_rt.txt')
+    rt_f = os.path.join(indir, 'all_rt.txt')
     rt_dict = parse_rt_f(rt_f)
     results, new_metadata = parse_metadata(metadata)
-    for fname in tqdm(new_metadata.index):
-        rat_id, date, action, raw_stime, raw_etime = results[fname]
+    for fname in tqdm(results.keys()):
+        rat_id, date, action, raw_stime, raw_etime = map(str,results[fname])
         fname = os.path.join(odir, date, fname)
         os.makedirs(os.path.join(odir, date), exist_ok=True)
 
