@@ -9,7 +9,9 @@ import cv2
 import pandas as pd
 from tqdm import tqdm
 from videoprops import get_video_properties
+
 from utils import parse_metadata
+
 
 def randomString(stringLength=10):
     """Generate a random string of fixed length """
@@ -126,7 +128,7 @@ def split_video_trans(indir, date, rt_dict, raw_stime, raw_etime, fname, cov_tim
     tmp2 = os.path.join(odir, random_name + '_2.avi')
     cmd = split_cmd(infile=video1, ofile=tmp1, stime=video_stime1, duration=video_duration1) + ' ;'
     cmd += split_cmd(infile=video2, ofile=tmp2, stime=video_stime2, duration=video_duration2) + ' ;'
-    from concat_video import concat_2
+    from extra_utils.concat_video import concat_2
     cmd_concat = concat_2(tmp1, tmp2, fname)
     cmd += cmd_concat
     if not keep_intermediate:
