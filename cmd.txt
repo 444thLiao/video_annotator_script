@@ -1,0 +1,4 @@
+python3 /home/liaoth/project/VD/video_annotater_script/init_project_within_terminal.py -i /home/liaoth/data2/project/VD/data2/splitted/20190411 -o /home/liaoth/data2/project/VD/data2/analysis/20190411
+python3 /home/liaoth/project/VD/video_annotater_script/replicateing_BLR.py -i /home/liaoth/data2/project/VD/data2/analysis/20190411
+python3 /home/liaoth/project/VD/video_annotater_script/start_video_tracking.py -i /home/liaoth/data2/project/VD/data2/analysis/20190411
+
