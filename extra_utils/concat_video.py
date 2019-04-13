@@ -63,7 +63,7 @@ def concat_video(indir, odir, recursive=True):
 
             sorted_files = sorted(zip(sub_video_min,
                                       sub_video_files))
-            first_time_stamp = int(str(os.path.basename(sorted_files[0][0])).strip(ori_suffix).split('_')[1])
+            first_time_stamp = int(str(os.path.basename(sorted_files[0][1])).strip(ori_suffix).split('_')[1])
             rt_text += "%s\t%s\n" % (time.strftime("%Y%m%d%H.avi", time.localtime(first_time_stamp)),
                                      time.strftime("%H:%M:%S;0", time.localtime(first_time_stamp)))
             if os.path.isfile(final_file):
