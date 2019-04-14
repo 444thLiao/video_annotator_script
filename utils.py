@@ -18,7 +18,7 @@ def data_parser(path, ft='csv', **kwargs):
             dialect = sniffer.sniff(open(path, 'r').readline().strip('\n'))
             param = dict(sep=dialect.delimiter, index_col=False, header=0, low_memory=False,)
             param.update(**kwargs)
-            df = pd.read_csv(path, **kwargs)
+            df = pd.read_csv(path, **param)
             return df
             # low_memory is important for sample name look like float and str. it may mistaken the sample name into some float.
         # elif ft == 'metadatas': # indicate there may be multiple input

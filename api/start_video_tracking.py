@@ -1,7 +1,7 @@
 from AnyQt import QtCore
 from tqdm import tqdm
 
-from api.init_project_within_terminal import *
+from init_project_within_terminal import *
 
 
 def unchecked_all(videos):
@@ -25,7 +25,7 @@ def start_video_tracking(project_path):
     select_datasets = datasetsselectordialog._datasets
 
     for row in tqdm(range(select_video.count)):
-        unchecked_all(select_video)
+
         # 从上往下依次选择视频,并check该视频
         item = select_video._form.listWidget.item(row)
         item.setCheckState(QtCore.Qt.Checked)
@@ -46,8 +46,8 @@ def start_video_tracking(project_path):
         threshold_panel = imgfilter[0][1]
         mask_panel = imgfilter[-1][1]
         # 两个主要panel
-        threshold_panel._field_adaptive_threshold_block_size.value = 1300
-        threshold_panel._field_adaptive_threshold_c.value = 200
+        threshold_panel._field_adaptive_threshold_block_size.value = 925
+        threshold_panel._field_adaptive_threshold_c.value = 250
         # 调整两个参数
         video_select_panel = mask_panel._panel.value._videos
         geo_select_panel = mask_panel._panel.value._objects
@@ -62,6 +62,10 @@ def start_video_tracking(project_path):
         # 开始执行
         tracking_window.process()
         unchecked_all(video_select_panel)
+        unchecked_all(geo_select_panel)
+        unchecked_all(select_video)
+        unchecked_all(select_obj)
+        unchecked_all(select_datasets)
     myapp.save_project(project_path)
 
 

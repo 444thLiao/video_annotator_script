@@ -7,19 +7,15 @@ from glob import glob
 def repr_target(f, targets):
     if os.path.isfile(f):
         val = eval(open(f, 'r').read())
+        dir_name = os.path.basename(os.path.dirname(f))
         if val:
-            if '/B/' in f:
+            if 'B' == dir_name:
                 targets['For B'] = f
             if '_1' in f:
-                if '/L/' in f:
-                    targets['For 1']['L'] = f
-                if '/R/' in f:
-                    targets['For 1']['R'] = f
+                targets['For 1'][dir_name] = f
             elif '_2' in f:
-                if '/L/' in f:
-                    targets['For 2']['L'] = f
-                if '/R/' in f:
-                    targets['For 2']['R'] = f
+                targets['For 2'][dir_name] = f
+
 
 
 def replace_with_targets(file_name, targets):
@@ -28,6 +24,7 @@ def replace_with_targets(file_name, targets):
     R_geo = os.path.join(file_name, "objects", "R", "data.geo")
     if not targets['For B'] or not targets['For 1']['L'] or not targets['For 1']['R'] or \
         not targets['For 2']['L'] or not targets['For 2']['R']:
+        import pdb;pdb.set_trace()
         raise Exception("Some repr_target doesn't detect")
     if targets['For B'] != B_geo:
         shutil.copy(targets['For B'], B_geo)

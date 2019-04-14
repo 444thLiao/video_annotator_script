@@ -71,7 +71,7 @@ def parse_rt_f(rt_f):
     :param rt_f:
     :return:
     """
-    data = data_parser(rt_f, ft='csv')
+    data = data_parser(rt_f, ft='csv',header=None)
     ori_files = [str(_) for _ in data.iloc[:, 0]]
     return dict(zip(ori_files,
                     data.iloc[:, 1]))
