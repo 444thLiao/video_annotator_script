@@ -66,7 +66,7 @@ def start_video_tracking(project_path):
         unchecked_all(select_video)
         unchecked_all(select_obj)
         unchecked_all(select_datasets)
-    myapp.save_project(project_path)
+        myapp.save_project(project_path)
 
 
 if __name__ == '__main__':
@@ -75,7 +75,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", '--input_dir', help="which directory you want to process",
                         type=str, )
+    parser.add_argument("-r", "--recursive",
+                        help="recursive rename and move",
+                        action="store_true")
     args = parser.parse_args()
     indir = args.input_dir
-
-    start_video_tracking(indir)
+    r = args.recursive
+    if r:
+        for dir in glob(os.path.join(indir, '*')):
+            basename = os.path.basename(dir)
+            print("recursively process each directory: %s" % basename)
+            start_video_tracking(dir)
+    else:
+        start_video_tracking(indir)

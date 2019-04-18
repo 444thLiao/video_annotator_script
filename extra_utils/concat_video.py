@@ -5,7 +5,6 @@ from subprocess import check_call
 from tqdm import tqdm
 import time
 
-
 def concat_2(v1, v2, oname):
     """
     合并video1,video2 到oname

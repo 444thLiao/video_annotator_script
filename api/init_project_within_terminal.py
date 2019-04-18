@@ -63,17 +63,31 @@ if __name__ == '__main__':
     parser.add_argument("-o", "--output_dir",
                         help="The directory you want to save your project(could be non-exist)",
                         type=str)
-
+    parser.add_argument("-r", "--recursive",
+                        help="recursive rename and move",
+                        action="store_true")
     args = parser.parse_args()
     indir = args.input_dir
     odir = args.output_dir
+    r = args.recursive
 
     # indir = "/home/liaoth/data2/project/VD/data2/splitted/20190409"
     # odir = '/home/liaoth/Desktop/test2'
     overwrite = False
 
-    load_videos(indir)
-    if not os.path.isdir(odir) or overwrite:
-        myapp.save_project(odir)
-        if overwrite:
-            print('overwritting it.')
+    if r:
+        for dir in glob(os.path.join(indir,'*')):
+            basename = os.path.basename(dir)
+            print("recursively process each directory: %s" % basename)
+            new_odir = os.path.join(odir,basename)
+            if not os.path.isdir(odir) or overwrite:
+                load_videos(dir)
+                myapp.save_project(new_odir)
+                if overwrite:
+                    print('overwritting it.')
+    else:
+        if not os.path.isdir(odir) or overwrite:
+            load_videos(indir)
+            myapp.save_project(odir)
+            if overwrite:
+                print('overwritting it.')

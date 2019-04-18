@@ -13,12 +13,12 @@ from glob import glob
 from itertools import groupby
 from operator import itemgetter
 
+import cv2
 import numpy as np
 import pandas as pd
 from shapely import wkt
 from tqdm import tqdm
-from videoprops import get_video_properties
-
+import os, base64, numpy as np
 
 def cal_time(video, dir_path, threshold, rt):
     if os.path.isdir(dir_path):
@@ -27,11 +27,9 @@ def cal_time(video, dir_path, threshold, rt):
     else:
         iter_ob = tqdm([dir_path])
         dir_path = os.path.dirname(dir_path)
-
-    props = get_video_properties(video)
-    f_2_rt = processing_rt(rt, props)
-    total_frames = int(float(props['duration']) * float(props['avg_frame_rate'].split('/')[0]))
-    num_frame_per_s = total_frames / float(props['duration'])
+    cap = cv2.VideoCapture(video)
+    f_2_rt = processing_rt(rt, cap)
+    num_frame_per_s = cap.get(5)
     dir_dir_path = os.path.dirname(dir_path)
     make_dir = os.path.join(dir_dir_path, 'cal_time_csv')
     if not os.path.isdir(make_dir):
@@ -58,9 +56,9 @@ def cal_time(video, dir_path, threshold, rt):
         result_df.to_csv(new_name, index=False)
 
 
-def processing_rt(rt, props):
-    total_frame = int(float(props['duration']) * float(props['avg_frame_rate'].split('/')[0]))
-    num_frame_per_s = total_frame / float(props['duration'])
+def processing_rt(rt, cap):
+    total_frame = cap.get(7)
+    num_frame_per_s = cap.get(5)
     if rt is None:
         print('missing starting time')
     else:
@@ -109,12 +107,17 @@ def read_points(proj_dir, video, name):
         print('wrong path %s, Please check the name' % default_path)
     else:
         file_path = list(glob(default_path))[0]
-    data = pd.read_csv(file_path, sep=';', index_col=0)
-    return data
+        data = pd.read_csv(file_path, sep=';', index_col=0)
+        return data
 
 
 def read_obj(proj_dir, name):
-    default_path = '%s/videos/*/objects/%s/data.geo' % (proj_dir, name)
+    default_path = os.path.join(proj_dir,
+                                'videos',
+                                '*',
+                                'objects',
+                                name,
+                                'data.geo')
     if not glob(default_path):
         print('wrong path %s, Please check the name' % default_path)
         return
@@ -130,9 +133,40 @@ def read_obj(proj_dir, name):
         #
         # poly.distance(pt)
         # poly.boundary.distance(pt)
+from pythonvideoannotator_models.models.video.objects.object2d.object2d_base import Object2dBase
+from pythonvideoannotator_models.models.video.objects.object2d.datasets.contours import Contours
+from pythonvideoannotator_models.models.video import Video
+from pythonvideoannotator_models.models import Project
+
+
+def main_load(project_path):
+    project = Project()
+    project.load({}, project_path)
+    return project
+
+def get_video(project,name):
+    for v in project.videos:
+        if name in v.name:
+            return v
+
+def load_contours():
+    pass
 
 
 def main(proj_dir, rt, video):
+    project = main_load(proj_dir)
+    videos = project.videos
+    for video in videos:
+        total_frame = video.total_frames
+        for obj in video.objects2D:
+            contour = [_ for _ in obj.datasets if 'contours' in _.name.lower()]
+            if not contour:
+                raise Exception
+            contour = contour[0]
+            extreme_points = map(contour.get_extreme_points,range(total_frame))
+
+
+    ############################################################
     video_name = os.path.basename(video).rpartition('.')[0]
     p1_data = read_points(proj_dir, video_name, 'p1')
     p2_data = read_points(proj_dir, video_name, 'p2')
@@ -141,8 +175,8 @@ def main(proj_dir, rt, video):
     R_obj = read_obj(proj_dir, 'R')
 
     # video = '/home/liaoth/data2/project/RD_VD/2018111509.mp4'
-    props = get_video_properties(video)
-    f_2_rt = processing_rt(rt, props)
+    cap = cv2.VideoCapture(video)
+    f_2_rt = processing_rt(rt, cap)
 
     merged_data = p1_data.join(p2_data, rsuffix='_p2')
     tmp = []
@@ -159,7 +193,6 @@ def main(proj_dir, rt, video):
         merged_data.loc[:, i] = 0
     merged_data.loc[:, ["dis_L_p1", "dis_L_p2", "dis_R_p1", "dis_R_p2"]] = tmp
     return merged_data, f_2_rt, props
-
 
 def match_times(merged_data, f_2_rt, props):
     diff_data = np.apply_along_axis(np.diff, 0, merged_data.values[:, -4:])
@@ -222,6 +255,10 @@ def further_summary(data_df, input_region):
         subset_data = data_df.loc[[_s in intervals and _e in intervals for _s, _e in zip(s_f, e_f)], :]
         sto_dict[(intervals[0], intervals[1])] = subset_data
     return sto_dict
+
+
+# def main():
+#     pass
 
 
 if __name__ == '__main__':

@@ -10,6 +10,7 @@ def unchecked_all(videos):
         item = videos._form.listWidget.item(row)
         item.setCheckState(QtCore.Qt.Unchecked)
 
+
 def start_video_pathmap(project_path):
     myapp.load_project(project_path)
     pathmap_window = myapp.pathmap_window
@@ -45,8 +46,11 @@ def start_video_pathmap(project_path):
         radius.value = 27
         # 开始执行
         pathmap_window.process()
+        unchecked_all(select_video)
+        unchecked_all(select_datasets)
+        unchecked_all(select_obj)
+        myapp.save_project(project_path)
 
-    myapp.save_project(project_path)
 
 if __name__ == '__main__':
     import argparse
@@ -54,7 +58,17 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", '--input_dir', help="which directory you want to process",
                         type=str, )
+    parser.add_argument("-r", "--recursive",
+                        help="recursive rename and move",
+                        action="store_true")
     args = parser.parse_args()
     indir = args.input_dir
+    r = args.recursive
 
-    start_video_pathmap(indir)
+    if r:
+        for dir in glob(os.path.join(indir, '*')):
+            basename = os.path.basename(dir)
+            print("recursively process each directory: %s" % basename)
+            start_video_pathmap(dir)
+    else:
+        start_video_pathmap(dir)

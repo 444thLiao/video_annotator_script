@@ -22,22 +22,27 @@ def replace_with_targets(file_name, targets):
     B_geo = os.path.join(file_name, "objects", "B", "data.geo")
     L_geo = os.path.join(file_name, "objects", "L", "data.geo")
     R_geo = os.path.join(file_name, "objects", "R", "data.geo")
-    if not targets['For B'] or not targets['For 1']['L'] or not targets['For 1']['R'] or \
-        not targets['For 2']['L'] or not targets['For 2']['R']:
-        import pdb;pdb.set_trace()
-        raise Exception("Some repr_target doesn't detect")
-    if targets['For B'] != B_geo:
-        shutil.copy(targets['For B'], B_geo)
+    ori_B = targets.get('For B','')
+    ori_L_for1 = targets.get('For 1', {}).get('L','')
+    ori_R_for1 = targets.get('For 1', {}).get('R', '')
+    ori_L_for2 = targets.get('For 2', {}).get('L', '')
+    ori_R_for2 = targets.get('For 2', {}).get('R', '')
+    # if not targets['For B'] or not targets['For 1']['L'] or not targets['For 1']['R'] or \
+    #     not targets['For 2']['L'] or not targets['For 2']['R']:
+    #     import pdb;pdb.set_trace()
+    #     raise Exception("Some repr_target doesn't detect")
+    if ori_B != B_geo and ori_B:
+        shutil.copy(ori_B, B_geo)
     if '_1' in file_name:
-        if targets['For 1']['L'] != L_geo:
-            shutil.copy(targets['For 1']['L'], L_geo)
-        if targets['For 1']['R'] != R_geo:
-            shutil.copy(targets['For 1']['R'], R_geo)
+        if ori_L_for1 != L_geo and ori_L_for1:
+            shutil.copy(ori_L_for1, L_geo)
+        if ori_R_for1 != R_geo and ori_R_for1:
+            shutil.copy(ori_R_for1, R_geo)
     elif '_2' in file_name:
-        if targets['For 2']['L'] != L_geo:
-            shutil.copy(targets['For 2']['L'], L_geo)
-        if targets['For 2']['R'] != R_geo:
-            shutil.copy(targets['For 2']['R'], R_geo)
+        if ori_L_for2 != L_geo and ori_L_for2:
+            shutil.copy(ori_L_for2, L_geo)
+        if ori_R_for2 != R_geo and ori_R_for2:
+            shutil.copy(ori_R_for2, R_geo)
 
 
 def replicateing(indir):
@@ -61,8 +66,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", '--input_dir', help="which directory you want to process",
                         type=str, )
-
+    parser.add_argument("-r", "--recursive",
+                        help="recursive rename and move",
+                        action="store_true")
     args = parser.parse_args()
     indir = args.input_dir
-
-    replicateing(indir)
+    r = args.recursive
+    if r:
+        for dir in glob(os.path.join(indir,'*')):
+            basename = os.path.basename(dir)
+            print("recursively process each directory: %s" % basename)
+            replicateing(dir)
+    else:
+        replicateing(indir)

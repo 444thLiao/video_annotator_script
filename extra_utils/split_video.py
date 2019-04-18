@@ -6,10 +6,7 @@ from datetime import timedelta
 from subprocess import check_call
 
 import cv2
-import pandas as pd
 from tqdm import tqdm
-from videoprops import get_video_properties
-
 from utils import parse_metadata, data_parser
 
 
@@ -33,9 +30,8 @@ def convert_time_with_rt(rt, video, times, cov_time=True):
     :param cov_time:
     :return:
     """
-    props = get_video_properties(video)
-    total_frame = int(float(props['duration']) * float(eval(props['avg_frame_rate'])))
-    num_frame_per_s = total_frame / float(props['duration'])
+    cap = cv2.VideoCapture(video)
+    num_frame_per_s = cap.get(5)
     if type(rt) == str:
         rt = [rt]
     if type(times) == str:
@@ -97,12 +93,12 @@ def _sub_split(indir, date, h, rt_dict, raw_stime, raw_etime, cov_time=False):
     rt = rt_dict[os.path.basename(video)]
     video_sframe, video_eframe = convert_time_with_rt(rt, video, [raw_stime, raw_etime], cov_time=cov_time)
     cap = cv2.VideoCapture(video)
-    video_stime = str(timedelta(seconds=int(video_sframe / cap.get(5) + 3)))
-    video_duration = str(timedelta(seconds=int((video_eframe - video_sframe) / cap.get(5))))
+    video_stime = str(timedelta(seconds=int(video_sframe / cap.get(5)) + 3))
+    video_duration = str(timedelta(seconds=int((video_eframe - video_sframe) / cap.get(5)) - 3
+                                   ))
     if video_eframe < video_sframe:
         print("Some end frame is smaller than start frame, it may occur some errors.")
-        import pdb
-        pdb.set_trace()
+        import pdb;pdb.set_trace()
     return video, video_stime, video_duration
 
 
@@ -130,7 +126,7 @@ def split_video_trans(indir, date, rt_dict, raw_stime, raw_etime, fname, cov_tim
     tmp2 = os.path.join(odir, random_name + '_2.avi')
     cmd = split_cmd(infile=video1, ofile=tmp1, stime=video_stime1, duration=video_duration1) + ' ;'
     cmd += split_cmd(infile=video2, ofile=tmp2, stime=video_stime2, duration=video_duration2) + ' ;'
-    from extra_utils.concat_video import concat_2
+    from concat_video import concat_2
     cmd_concat = concat_2(tmp1, tmp2, fname)
     cmd += cmd_concat
     if not keep_intermediate:

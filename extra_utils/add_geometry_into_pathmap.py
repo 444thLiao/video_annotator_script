@@ -7,6 +7,8 @@ import cv2
 """
 在生成pathmap后使用,通过之前标记的border从而 广播(broadcast)到对应pathmap上
 """
+
+
 def iter_doc(indir, outdir):
     """
     pythonvideoannotator的固定输出格式
@@ -15,29 +17,24 @@ def iter_doc(indir, outdir):
     :param outdir:
     :return:
     """
-    pathmap_files = sorted(glob(os.path.join(indir, 'videos/*/objects/pathmap-1/pathmap-1.png')))
-    B_files = sorted(glob(os.path.join(indir, 'videos/*/objects/B/data.geo')))
-    L_files = sorted(glob(os.path.join(indir, 'videos/*/objects/L/data.geo')))
-    R_files = sorted(glob(os.path.join(indir, 'videos/*/objects/R/data.geo')))
     if not os.path.isdir(outdir):
         os.makedirs(outdir)
+    for pathmap in sorted(glob(os.path.join(indir, 'videos/*/objects/pathmap-1/*.png'))):
+        sid = re.findall('videos/(.*)/objects', pathmap)[0]
+        img = cv2.imread(pathmap)
+        if '_A' in sid:
+            iter_objs = ['B']
+        elif '_1' in sid or '_2' in sid:
+            iter_objs = ['B', 'L', 'R']
+        else:
+            raise Exception
+        for obj in iter_objs:
+            geo = os.path.join(indir, 'videos/%s/objects/%s/data.geo' % (sid, obj))
+            val_cmd = open(geo, 'r').read()
+            val = eval(val_cmd)
+            img = add_geometry(img, val, color=border_color)
 
-    for pathmap, B, L, R in zip(pathmap_files,
-                                B_files,
-                                L_files,
-                                R_files):
-        B = open(B, 'r').read()
-        B = eval('%s' % B, )
-        L = open(L, 'r').read()
-        L = eval('%s' % L, )
-        R = open(R, 'r').read()
-        R = eval('%s' % R, )
-        img = add_geometry(pathmap, B, color=(0, 0, 255))
-        img = add_geometry(img, L, color=(0, 0, 255))
-        img = add_geometry(img, R, color=(0, 0, 255))
-
-        filename = re.findall('videos/(.*)/objects', pathmap)[0]
-        cv2.imwrite(os.path.join(outdir, filename + '.png'),
+        cv2.imwrite(os.path.join(outdir, sid + '.png'),
                     img)
 
 
@@ -54,10 +51,27 @@ def add_geometry(img, shape_ord, color=(0, 0, 0)):
 
 if __name__ == '__main__':
     border_color = (0, 0, 255)
-    indir = '/home/liaoth/project/VD/data/video/aft_med/3MIN'
-    indir2 = '/home/liaoth/project/VD/data/video/aft_model/3MIN'
-    outdir = '/home/liaoth/project/VD/data/pathmap/aft_med'
-    outdir2 = '/home/liaoth/project/VD/data/pathmap/aft_model'
+    import argparse
 
-    iter_doc(indir, outdir)
-    iter_doc(indir2, outdir2)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-i", '--input_dir', help="which directory you want to process",
+                        type=str, )
+    parser.add_argument("-o", "--output_dir",
+                        help="The directory you want to save your project(could be non-exist)",
+                        type=str)
+    parser.add_argument("-r", "--recursive",
+                        help="recursive rename and move",
+                        action="store_true")
+    args = parser.parse_args()
+    indir = args.input_dir
+    odir = args.output_dir
+    r = args.recursive
+
+    if r:
+        for dir in glob(os.path.join(indir, '*')):
+            basename = os.path.basename(dir)
+            print("recursively process each directory: %s" % basename)
+            new_odir = os.path.join(odir, basename)
+            iter_doc(dir, new_odir)
+    else:
+        iter_doc(indir, odir)
