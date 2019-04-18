@@ -164,7 +164,8 @@ def main(proj_dir, rt, video):
                 raise Exception
             contour = contour[0]
             extreme_points = map(contour.get_extreme_points,range(total_frame))
-
+            total_distance = contour.calc_walked_distance(1)[0][-1]
+            
 
     ############################################################
     video_name = os.path.basename(video).rpartition('.')[0]
