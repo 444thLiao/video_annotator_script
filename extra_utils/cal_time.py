@@ -7,6 +7,8 @@ import argparse
 import os
 import time
 from glob import glob
+from itertools import groupby
+from operator import itemgetter
 
 import cv2
 import numpy as np
@@ -14,9 +16,11 @@ import pandas as pd
 import plotly.graph_objs as go
 import plotly.io as pio
 from pythonvideoannotator_models.models import Project
-from shapely.geometry import Polygon, Point
+from shapely.geometry import Polygon, Point, MultiPolygon
 from tqdm import tqdm
 
+import warnings
+warnings.filterwarnings('ignore')
 
 def main_load(project_path):
     project = Project()
@@ -41,19 +45,67 @@ def try_fix_path(proj_dir):
     project.save(project_path=proj_dir)
 
 
-def cal_dis(L, R, head_list, FPS, contours):
+def cal_dis(L, R,  FPS, contours,head_list=None):
     L_geo = Polygon(L._geometry[0][1])
     R_geo = Polygon(R._geometry[0][1])
     # convert to polygon
-    head2L = [L_geo.distance(Point(p)) for p in head_list]
-    head2R = [R_geo.distance(Point(p)) for p in head_list]
-    body2L = [L_geo.distance(Polygon(c)) for c in contours]
-    body2R = [R_geo.distance(Polygon(c)) for c in contours]
-    distance_df = pd.DataFrame(np.array([head2L, head2R, body2L, body2R]).T,
-                               columns=['head to L', 'head to R', 'body to L', 'body to R'])
-    distance_df.insert(0, 'video time',
-                       [time.strftime('%M:%S', time.localtime(100 / FPS)) for _ in range(distance_df.shape[0])])
+    if head_list:
+        head2L = [L_geo.distance(Point(p)) for p in head_list]
+        head2R = [R_geo.distance(Point(p)) for p in head_list]
+        body2L = [L_geo.distance(Polygon(c)) for c in contours]
+        body2R = [R_geo.distance(Polygon(c)) for c in contours]
+        distance_df = pd.DataFrame(np.array([head2L, head2R, body2L, body2R]).T,
+                                   columns=['head to L', 'head to R', 'body to L', 'body to R'])
+        distance_df.insert(0, 'video time',
+                           [time.strftime('%M:%S', time.localtime(_ / FPS)) for _ in range(distance_df.shape[0])])
+    else:
+        body2L = [L_geo.distance(Polygon(c)) for c in contours]
+        body2R = [R_geo.distance(Polygon(c)) for c in contours]
+        distance_df = pd.DataFrame(np.array([ body2L, body2R]).T,
+                                   columns=['body to L', 'body to R'])
+        distance_df.insert(0, 'video time',
+                           [time.strftime('%M:%S', time.localtime(_ / FPS)) for _ in range(distance_df.shape[0])])
+
     return distance_df
+
+
+def view_status(L_geo, R_geo, contours, index):
+    return MultiPolygon([L_geo, R_geo, Polygon(contours[index])])
+    # view_status(L_geo,R_geo,contours,2420)
+
+
+def extract_region(dis_df):
+    result = []
+    for k, g in groupby(enumerate(dis_df.index), lambda x: x[0] - x[1]):
+        interval = list(map(itemgetter(1), g))
+        if len(interval) >= 5:
+            result.append(('%s - %s' % (interval[0], interval[-1]),
+                           abs(interval[-1] - interval[0]),
+                           dis_df.loc[interval[0], 'accident'] if 'accident' in dis_df.columns else None
+                           ))
+    return result
+
+
+def subtract_dis(dis_df, ID, threshold=10):
+    sub_L_df = dis_df.loc[dis_df.loc[:, 'body to L'] <= threshold, :]
+    sub_R_df = dis_df.loc[dis_df.loc[:, 'body to R'] <= threshold, :]
+
+    may_wrong_row = sub_L_df.loc[:, 'body to R'] <= threshold * 5
+    if any(may_wrong_row):
+        sub_L_df.loc[may_wrong_row, 'accident'] = 'too close to R'
+    may_wrong_row = sub_R_df.loc[:, 'body to L'] <= threshold * 5
+    if any(may_wrong_row):
+        sub_R_df.loc[may_wrong_row, 'accident'] = 'too close to L'
+    result_L = extract_region(sub_L_df)
+    result_R = extract_region(sub_R_df)
+
+    df_L = pd.DataFrame(result_L, columns=['start/f - end/f',
+                                           'duration/f',
+                                           "accident"], index=['%s_L' % ID] * len(result_L))
+    df_R = pd.DataFrame(result_R, columns=['start/f - end/f',
+                                           'duration/f',
+                                           "accident"], index=['%s_R' % ID] * len(result_R))
+    return pd.concat([df_L, df_R], axis=0)
 
 
 def main(proj_dir, odir, plot=True):
@@ -65,11 +117,13 @@ def main(proj_dir, odir, plot=True):
     os.makedirs(draw_outdir, exist_ok=True)
 
     total_output_file = os.path.join(dis_df_outdir, "total info.csv")
-    total_output_df = pd.DataFrame(columns=["total walk distance"])
+    total_output_df = pd.DataFrame(columns=["total walk distance",
+                                            "duration to L",
+                                            "duration to R"])
     # if exist total df, read it else create it
     for video in tqdm(project.videos):
         group_name = os.path.basename(video.filepath).split('.')[0]
-        output_file = os.path.join(dis_df_outdir, group_name + '.csv')
+        output_file = os.path.join(dis_df_outdir, str(group_name) + '_full.csv')
         # get group name and create dir
         cap = cv2.VideoCapture(video.filepath)
         total_frame = cap.get(cv2.CAP_PROP_FRAME_COUNT)
@@ -84,15 +138,20 @@ def main(proj_dir, odir, plot=True):
         contour_obj = contour_obj[0]
         # get L,R, contour object
         if '_1' in video.name or '_2' in video.name:
-            extreme_points = [contour_obj.get_extreme_points(_) for _ in tqdm(range(int(total_frame)),
-                                                                              total=total_frame)]
+            # extreme_points = [contour_obj.get_extreme_points(_) for _ in tqdm(range(int(total_frame)),
+            #                                                                   total=total_frame)]
             # get extreme points, it takes time!!!!!!!!!!!!!!1
-            head_list = [_[0] for _ in extreme_points if _[0]]
+            # head_list = [_[0] for _ in extreme_points if _[0]]
             contours = [_[:, 0, :] for _ in contour_obj._contours]
-            distance_df = cal_dis(L, R, head_list, FPS, contours)
+            distance_df = cal_dis(L, R, FPS, contours)
+            region_df = subtract_dis(distance_df, group_name, threshold=10)
             distance_df.to_csv(output_file, index=1, index_label='frame')
+            region_df.to_csv(output_file.replace("_full", "_region"), index=1, index_label='frame')
             if plot:
                 draw_graph(distance_df, draw_outdir, group_name)
+            total_output_df.loc[group_name,:] = (0,
+                                                 region_df.loc[region_df.index.str.endswith('_L'),'duration/f'].sum(),
+                                                 region_df.loc[region_df.index.str.endswith('_R'),'duration/f'].sum())
         try:
             total_distance = contour_obj.calc_walked_distance(0)[0][-1]
         except:
@@ -155,4 +214,4 @@ if __name__ == '__main__':
     else:
         main(indir, odir, plot=p)
 
-    # python cal_time.py -i
+    # python /home/liaoth/project/VD/video_annotator_script/extra_utils/cal_time.py -i /home/liaoth/data2/project/VD/data2/analysis/20190411 -o /home/liaoth/data2/project/VD/data2/result/ -p
