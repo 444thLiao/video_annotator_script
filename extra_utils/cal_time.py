@@ -3,7 +3,6 @@
 # cal the time with given threshold.
 ###
 
-
 import argparse
 import os
 import time
@@ -12,6 +11,8 @@ from glob import glob
 import cv2
 import numpy as np
 import pandas as pd
+import plotly.graph_objs as go
+import plotly.io as pio
 from pythonvideoannotator_models.models import Project
 from shapely.geometry import Polygon, Point
 from tqdm import tqdm
@@ -57,21 +58,17 @@ def cal_dis(L, R, head_list, FPS, contours):
 
 def main(proj_dir, odir, plot=True):
     project = main_load(proj_dir)
-    videos = project.videos
-    total_output_file = os.path.join(odir, "total info.csv")
+    DATE_name = os.path.basename(proj_dir)
     draw_outdir = os.path.join(odir, 'draw')
-    if not os.path.exists(draw_outdir):
-        os.makedirs(draw_outdir, exist_ok=True)
+    dis_df_outdir = os.path.join(odir, DATE_name)
+    os.makedirs(dis_df_outdir, exist_ok=True)
+    os.makedirs(draw_outdir, exist_ok=True)
 
-    if os.path.exists(total_output_file):
-        total_output_df = pd.read_csv(total_output_file, index_col=0)
-    else:
-        total_output_df = pd.DataFrame(columns=["total walk distance"])
+    total_output_file = os.path.join(dis_df_outdir, "total info.csv")
+    total_output_df = pd.DataFrame(columns=["total walk distance"])
     # if exist total df, read it else create it
-    for video in tqdm(videos):
+    for video in tqdm(project.videos):
         group_name = os.path.basename(video.filepath).split('.')[0]
-        dis_df_outdir = os.path.join(odir, group_name)
-        os.makedirs(dis_df_outdir, exist_ok=True)
         output_file = os.path.join(dis_df_outdir, group_name + '.csv')
         # get group name and create dir
         cap = cv2.VideoCapture(video.filepath)
@@ -87,7 +84,8 @@ def main(proj_dir, odir, plot=True):
         contour_obj = contour_obj[0]
         # get L,R, contour object
         if '_1' in video.name or '_2' in video.name:
-            extreme_points = [contour_obj.get_extreme_points(_) for _ in range(int(total_frame))]
+            extreme_points = [contour_obj.get_extreme_points(_) for _ in tqdm(range(int(total_frame)),
+                                                                              total=total_frame)]
             # get extreme points, it takes time!!!!!!!!!!!!!!1
             head_list = [_[0] for _ in extreme_points if _[0]]
             contours = [_[:, 0, :] for _ in contour_obj._contours]
@@ -101,10 +99,6 @@ def main(proj_dir, odir, plot=True):
             total_distance = None
         total_output_df.loc[group_name, "total walk distance"] = total_distance
     total_output_df.to_csv(total_output_file, index=1, index_label='groupID')
-
-
-import plotly.io as pio
-import plotly.graph_objs as go
 
 
 def draw_graph(dis_df, outimg_dir, basename):
