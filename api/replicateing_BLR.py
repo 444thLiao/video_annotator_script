@@ -75,7 +75,8 @@ if __name__ == '__main__':
     if r:
         for dir in glob(os.path.join(indir,'*')):
             basename = os.path.basename(dir)
-            print("recursively process each directory: %s" % basename)
-            replicateing(dir)
+            if os.path.isdir(dir):
+                print("recursively process each directory: %s" % basename)
+                replicateing(dir)
     else:
         replicateing(indir)

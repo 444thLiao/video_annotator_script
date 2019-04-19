@@ -68,7 +68,8 @@ if __name__ == '__main__':
     if r:
         for dir in glob(os.path.join(indir, '*')):
             basename = os.path.basename(dir)
-            print("recursively process each directory: %s" % basename)
-            start_video_pathmap(dir)
+            if os.path.isdir(dir):
+                print("recursively process each directory: %s" % basename)
+                start_video_pathmap(dir)
     else:
         start_video_pathmap(dir)

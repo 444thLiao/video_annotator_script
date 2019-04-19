@@ -79,12 +79,13 @@ if __name__ == '__main__':
         for dir in glob(os.path.join(indir,'*')):
             basename = os.path.basename(dir)
             print("recursively process each directory: %s" % basename)
-            new_odir = os.path.join(odir,basename)
-            if not os.path.isdir(odir) or overwrite:
-                load_videos(dir)
-                myapp.save_project(new_odir)
-                if overwrite:
-                    print('overwritting it.')
+            if os.path.isdir(dir):
+                new_odir = os.path.join(odir,basename)
+                if not os.path.isdir(odir) or overwrite:
+                    load_videos(dir)
+                    myapp.save_project(new_odir)
+                    if overwrite:
+                        print('overwritting it.')
     else:
         if not os.path.isdir(odir) or overwrite:
             load_videos(indir)
