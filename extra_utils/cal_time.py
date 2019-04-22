@@ -1,3 +1,5 @@
+# -*- coding: UTF-8 -*-
+
 ###
 # Reading the output file of region filter.(batch or single)
 # cal the time with given threshold.
@@ -6,6 +8,7 @@
 import argparse
 import os
 import time
+import warnings
 from glob import glob
 from itertools import groupby
 from operator import itemgetter
@@ -19,8 +22,8 @@ from pythonvideoannotator_models.models import Project
 from shapely.geometry import Polygon, Point, MultiPolygon
 from tqdm import tqdm
 
-import warnings
 warnings.filterwarnings('ignore')
+
 
 def main_load(project_path):
     project = Project()
@@ -45,7 +48,7 @@ def try_fix_path(proj_dir):
     project.save(project_path=proj_dir)
 
 
-def cal_dis(L, R,  FPS, contours,head_list=None):
+def cal_dis(L, R, FPS, contours, head_list=None):
     L_geo = Polygon(L._geometry[0][1])
     R_geo = Polygon(R._geometry[0][1])
     # convert to polygon
@@ -61,7 +64,7 @@ def cal_dis(L, R,  FPS, contours,head_list=None):
     else:
         body2L = [L_geo.distance(Polygon(c)) for c in contours]
         body2R = [R_geo.distance(Polygon(c)) for c in contours]
-        distance_df = pd.DataFrame(np.array([ body2L, body2R]).T,
+        distance_df = pd.DataFrame(np.array([body2L, body2R]).T,
                                    columns=['body to L', 'body to R'])
         distance_df.insert(0, 'video time',
                            [time.strftime('%M:%S', time.localtime(_ / FPS)) for _ in range(distance_df.shape[0])])
@@ -74,19 +77,42 @@ def view_status(L_geo, R_geo, contours, index):
     # view_status(L_geo,R_geo,contours,2420)
 
 
-def extract_region(dis_df):
+def extract_region(dis_df,FPS):
     result = []
     for k, g in groupby(enumerate(dis_df.index), lambda x: x[0] - x[1]):
         interval = list(map(itemgetter(1), g))
         if len(interval) >= 5:
             result.append(('%s - %s' % (interval[0], interval[-1]),
+                           '%s - %s' % (time.strftime('%M:%S', time.localtime(interval[0] / FPS)),
+                                         time.strftime('%M:%S', time.localtime(interval[1] / FPS))),
                            abs(interval[-1] - interval[0]),
+                           round(abs(interval[-1] - interval[0])/FPS,2),
                            dis_df.loc[interval[0], 'accident'] if 'accident' in dis_df.columns else None
                            ))
     return result
 
 
-def subtract_dis(dis_df, ID, threshold=10):
+def process_accident(dis_df, result_region, col):
+    corrected_region = []
+    for row in result_region:
+        if type(row[-1]) == str:
+            start_time = int(row[0].split(' - ')[0])
+            mean_dis = []
+            for idx in range(start_time - 20, start_time):
+                dis2col = dis_df.loc[idx, col] - dis_df.loc[start_time, col]
+                mean_dis.append(dis2col)
+            mean_dis = np.mean(mean_dis)
+            if mean_dis <= 0:
+                # 说明在远离原来的物体col
+                # 则去除
+                continue
+            corrected_region.append(row)
+        else:
+            corrected_region.append(row)
+    return corrected_region
+
+
+def subtract_dis(dis_df, ID, threshold=10,FPS=24):
     sub_L_df = dis_df.loc[dis_df.loc[:, 'body to L'] <= threshold, :]
     sub_R_df = dis_df.loc[dis_df.loc[:, 'body to R'] <= threshold, :]
 
@@ -96,30 +122,41 @@ def subtract_dis(dis_df, ID, threshold=10):
     may_wrong_row = sub_R_df.loc[:, 'body to L'] <= threshold * 5
     if any(may_wrong_row):
         sub_R_df.loc[may_wrong_row, 'accident'] = 'too close to L'
-    result_L = extract_region(sub_L_df)
-    result_R = extract_region(sub_R_df)
+    result_L = extract_region(sub_L_df,FPS)
+    result_R = extract_region(sub_R_df,FPS)
 
-    df_L = pd.DataFrame(result_L, columns=['start/f - end/f',
-                                           'duration/f',
-                                           "accident"], index=['%s_L' % ID] * len(result_L))
-    df_R = pd.DataFrame(result_R, columns=['start/f - end/f',
-                                           'duration/f',
-                                           "accident"], index=['%s_R' % ID] * len(result_R))
+    corrected_L = process_accident(dis_df, result_L, col='body to L')
+    corrected_R = process_accident(dis_df, result_R, col='body to R')
+
+    df_L = pd.DataFrame(corrected_L, columns=['start/f - end/f',
+                                              'start - end(video time)',
+                                              'duration/f',
+                                              'duration/s',
+                                              "accident"], index=['%s_L' % ID] * len(result_L))
+    df_R = pd.DataFrame(corrected_R, columns=['start/f - end/f',
+                                              'start - end(video time)',
+                                              'duration/f',
+                                              'duration/s',
+                                              "accident"], index=['%s_R' % ID] * len(result_R))
     return pd.concat([df_L, df_R], axis=0)
 
 
 def main(proj_dir, odir, plot=True):
     project = main_load(proj_dir)
     DATE_name = os.path.basename(proj_dir)
-    draw_outdir = os.path.join(odir, 'draw')
+
     dis_df_outdir = os.path.join(odir, DATE_name)
+    draw_outdir = os.path.join(odir,dis_df_outdir, 'draw')
     os.makedirs(dis_df_outdir, exist_ok=True)
     os.makedirs(draw_outdir, exist_ok=True)
 
     total_output_file = os.path.join(dis_df_outdir, "total info.csv")
     total_output_df = pd.DataFrame(columns=["total walk distance",
-                                            "duration to L",
-                                            "duration to R"])
+                                            "duration to L/f",
+                                            "duration to R/f",
+                                            "duration to L/s",
+                                            "duration to R/s",
+                                            ])
     # if exist total df, read it else create it
     for video in tqdm(project.videos):
         group_name = os.path.basename(video.filepath).split('.')[0]
@@ -144,14 +181,17 @@ def main(proj_dir, odir, plot=True):
             # head_list = [_[0] for _ in extreme_points if _[0]]
             contours = [_[:, 0, :] for _ in contour_obj._contours]
             distance_df = cal_dis(L, R, FPS, contours)
-            region_df = subtract_dis(distance_df, group_name, threshold=10)
+            region_df = subtract_dis(distance_df, group_name, threshold=10,FPS=FPS)
             distance_df.to_csv(output_file, index=1, index_label='frame')
             region_df.to_csv(output_file.replace("_full", "_region"), index=1, index_label='frame')
             if plot:
                 draw_graph(distance_df, draw_outdir, group_name)
-            total_output_df.loc[group_name,:] = (0,
-                                                 region_df.loc[region_df.index.str.endswith('_L'),'duration/f'].sum(),
-                                                 region_df.loc[region_df.index.str.endswith('_R'),'duration/f'].sum())
+            total_output_df.loc[group_name, :] = (0,
+                                                  region_df.loc[region_df.index.str.endswith('_L'), 'duration/f'].sum(),
+                                                  region_df.loc[region_df.index.str.endswith('_R'), 'duration/f'].sum(),
+                                                  region_df.loc[region_df.index.str.endswith('_L'), 'duration/s'].sum(),
+                                                  region_df.loc[region_df.index.str.endswith('_R'), 'duration/s'].sum(),
+                                                  )
         try:
             total_distance = contour_obj.calc_walked_distance(0)[0][-1]
         except:
