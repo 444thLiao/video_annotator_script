@@ -70,7 +70,7 @@ if __name__ == '__main__':
                         help="recursive rename and move",
                         action="store_true")
     args = parser.parse_args()
-    indir = args.input_dir
+    indir = os.path.abspath(args.input_dir)
     r = args.recursive
     if r:
         for dir in glob(os.path.join(indir,'*')):

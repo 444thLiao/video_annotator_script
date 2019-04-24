@@ -198,8 +198,8 @@ if __name__ == '__main__':
                         help="Metadata record the group info.",
                         type=str)
     args = parser.parse_args()
-    indir = args.input_dir
-    odir = args.output_dir
+    indir = os.path.abspath(args.input_dir)
+    odir = os.path.abspath(args.output_dir)
     metadata = args.metadata
 
     o_metadata = os.path.join(odir, str(os.path.basename(metadata).rpartition('.')[0]) + '_new.xlsx')

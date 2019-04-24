@@ -1,12 +1,18 @@
-python3 extra_utils/concat_video.py -i /home/liaoth/data2/project/VD/data2/raw -o /home/liaoth/data2/project/VD/data2/raw
-python3 extra_utils/split_video.py -i /home/liaoth/data2/project/VD/data2/raw -o /home/liaoth/data2/project/VD/data2/splitted2 -m /home/liaoth/data2/project/VD/data2/split_video.xlsx
-python3 api/init_project_within_terminal.py -i /home/liaoth/data2/project/VD/data2/splitted/20190411 -o /home/liaoth/data2/project/VD/data2/analysis/20190411
-python3 api/replicateing_BLR.py -i /home/liaoth/data2/project/VD/data2/analysis/20190411
-python3 api/start_video_tracking.py -i /home/liaoth/data2/project/VD/data2/analysis/20190411
+python3 extra_utils/concat_video.py -i raw -o raw
 
+python3 extra_utils/split_video.py -i raw -o splitted -m /home/liaoth/data2/project/VD/data2/split_video.xlsx
 
+python3 api/init_project_within_terminal.py -i splitted -o analysis -r
 
+# manually add some example geometry
 
+python3 api/replicateing_BLR.py -i analysis/ -r
 
-python api/replicateing_BLR.py -i "D:\Desktop\项目\NORT\analysis\20190411"
-python api/start_video_tracking.py -i "D:\Desktop\项目\NORT\analysis\20190411"
+python3 api/start_video_tracking.py -i analysis/ -r
+
+python3 api/start_pathmap.py -i analysis/ -r
+
+python3 extra_utils/add_geometry_into_pathmap.py -i analysis/ -o pathmap/ -r
+
+python3 extra_utils/cal_time.py -i analysis/ -o time_regions/ -p -r
+

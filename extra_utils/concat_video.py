@@ -107,8 +107,8 @@ if __name__ == '__main__':
                         type=str)
 
     args = parser.parse_args()
-    indir = args.input_dir
-    odir = args.output_dir
+    indir = os.path.abspath(args.input_dir)
+    odir = os.path.abspath(args.output_dir)
     os.makedirs(odir, exist_ok=True)
 
     # indir = '/home/liaoth/data2/project/VD/data2/raw'

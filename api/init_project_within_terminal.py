@@ -67,8 +67,8 @@ if __name__ == '__main__':
                         help="recursive rename and move",
                         action="store_true")
     args = parser.parse_args()
-    indir = args.input_dir
-    odir = args.output_dir
+    indir = os.path.abspath(args.input_dir)
+    odir = os.path.abspath(args.output_dir)
     r = args.recursive
 
     # indir = "/home/liaoth/data2/project/VD/data2/splitted/20190409"
